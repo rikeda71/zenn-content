@@ -6,10 +6,10 @@ topics: ["Go", "自動生成"]
 published: false
 ---
 
-Go でオプション引数を実現したいときによく Functional Options Pattern (FOP) という方法が使われるかと思います。
-FOP は便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
+Go でオプション引数を実現したいときによく Functional Options Pattern が使われるかと思います。
+このデザインパターンは便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
 
-この問題を解決すべく、FOP を実現するための関数を自動生成する CLI ツール を作りました。
+この問題を解決すべく、Functional Options Pattern を実現するためのコードを自動生成する CLI ツール 「foggo」を作りました。
 
 https://github.com/s14t284/foggo
 
@@ -18,8 +18,8 @@ https://github.com/s14t284/foggo
 Go はそのシンプルな言語仕様から、オプション引数を提供していません。
 オプション引数はデフォルト引数やオプションパラメータとも呼ばれ、Python だと可変長引数である `*args` や `*kargs` のことを指します。
 
-通常の関数であれば特に問題ないのですが、構造体の初期化に使うメソッドやライブラリを提供する際にはこのような省略可能な引数が欲しくなる場合があります。
-この省略可能な引数を Go で実現するために使われるのが `Functional Options Pattern` (`FOP`) です。
+通常の関数であれば特に問題ないのですが、構造体の初期化に使うメソッドやライブラリを提供する際に、このような省略可能な引数が欲しくなる場合があります。
+この省略可能な引数を Go で実現するために使われるのが __Functional Options Pattern__ (FOP) です。
 FOP は uber の Go Style Guide や go-patterns でも紹介されています。
 
 https://github.com/uber-go/guide/blob/master/style.md#functional-options
@@ -95,12 +95,12 @@ func New(filepath string, setters ...Option) error {
 
 また、上記のような FOP の実現方法では、オプション引数を関数で定義しているため、モックを使ったテストができないという問題があります。
 以下の記事ではこの問題を解決するような FOP のパターンも提案されています。
-(問題点についても以下の2つの日本記事が詳しいため、そちらをご参照ください)
+(問題点については以下の記事が詳しいため、そちらをご参照ください)
 
 https://ww24.jp/2019/07/go-option-pattern
 https://zenn.dev/sanpo_shiho/articles/c06f6b156029a5
 
-上記記事で提案されている方法ではオプション引数を「オプション用のパラメータと `apply` 関数を持った構造体」として定義しています。
+上記記事ではオプション引数を「オプション用のパラメータと `apply` 関数を持った構造体」として定義する方法が紹介されています。
 各オプションを「オプション用のパラメータと `apply` 関数を実装した構造体」とすることで、`Option` インターフェースの可変長引数をオプション引数として取ることができます。
 
 ```go
@@ -152,7 +152,7 @@ func New(filepath string, setters ...Option) error {
 
 ## Functional Options Pattern の実装について
 
-FOP はオプションの数だけパラメータを代入する高階関数やオプション用の構造体 + `apply` 関数を実装する必要があるため、オプションが多いとその分実装も膨れ上がります。
+FOP はオプションの数だけ「パラメータを代入する高階関数」や「オプション用の構造体 + `apply` 関数」を実装する必要があるため、オプションが多いとその分実装も膨れ上がります。
 
 また、オプション引数は高階関数 または 構造体のパラメータを関数の引数のパラメータに代入する関数（`apply`）で定義されており、初見だと若干理解しづらいと思います。
 理解できると大きな問題はないのですが、理解できるまでは導入に躊躇ってしまうかもしれません。
@@ -184,7 +184,6 @@ foggo ではコマンドラインによる FOP の自動生成と `go:generate` 
 構造体を自動生成したい関数を定義しているファイルに `go:generate foggo fop --struct {構造体名}` を記述してください。
 
 ```go:file/options.go
-// Options
 package file
 
 //go:generate foggo fop --struct Options
@@ -266,8 +265,7 @@ func NewFile(filepath string, options *Options) error {
 	return f.Chown(options.UID, options.GID)
 }
 
-// 以下のようにオプションを絞って構造体を初期化する関数を用意することも可能
-
+// 以下のように必要に応じてオプションを絞って構造体を初期化する関数を用意すると良い
 func NewFileWithContentAndPermissions(filepath, content string, permissions os.FileMode) error {
 	options := NewOptions(
 		WithUID(os.Getuid()),
@@ -286,7 +284,8 @@ func NewFileWithContentAndPermissions(filepath, content string, permissions os.F
 
 上述の `NewOptions` 関数を見るとわかるように、最初の FOP の例と比べて初期化用の関数は、コード自動生成の都合から、可変長引数のみを持った関数となっています。
 そのため、オプション引数以外の引数を持った関数が必要な場合、別途、関数を実装する必要があります。
-それでも、FOPの実現のために記述すべきコードが減るのは有意義かと思います。
+
+それでも、FOPの実現のために記述すべきコードが減ることは有意義かと思います。
 
 # 終わりに
 
