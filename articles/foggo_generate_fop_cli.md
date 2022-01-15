@@ -3,7 +3,7 @@ title: "Go の 構造体定義から Functional Options Pattern のコードを�
 emoji: "🤖"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Go", "自動生成"]
-published: false
+published: true
 ---
 
 Go でオプション引数を実現したいときによく Functional Options Pattern が使われるかと思います。このデザインパターンは便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
