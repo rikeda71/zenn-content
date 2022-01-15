@@ -1,13 +1,12 @@
 ---
-title: "Go の 構造体定義から Functional Options Pattern を自動生成する CLI ツールを作った"
+title: "Go の 構造体定義から Functional Options Pattern のコードを自動生成する CLI ツールを作った"
 emoji: "🤖"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["Go", "自動生成"]
-published: false
+published: true
 ---
 
-Go でオプション引数を実現したいときによく Functional Options Pattern が使われるかと思います。
-このデザインパターンは便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
+Go でオプション引数を実現したいときによく Functional Options Pattern が使われるかと思います。このデザインパターンは便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
 
 この問題を解決すべく、Functional Options Pattern を実現するためのコードを自動生成する CLI ツール 「foggo」を作りました。
 
@@ -18,7 +17,7 @@ https://github.com/s14t284/foggo
 Go はそのシンプルな言語仕様から、オプション引数を提供していません。
 オプション引数はデフォルト引数やオプションパラメータとも呼ばれ、Python だと可変長引数である `*args` や `*kargs` のことを指します。
 
-通常の関数であれば特に問題ないのですが、構造体の初期化に使うメソッドやライブラリを提供する際に、このような省略可能な引数が欲しくなる場合があります。
+通常の関数であれば特に問題ないのですが、構造体の初期化用の関数やライブラリを提供する際に、このような省略可能な引数が欲しくなる場合があります。
 この省略可能な引数を Go で実現するために使われるのが __Functional Options Pattern__ (FOP) です。
 FOP は uber の Go Style Guide や go-patterns でも紹介されています。
 
@@ -27,9 +26,8 @@ https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md
 
 以下に go-patterns で提示されている FOP の例を示します。
 
-FOP では以下のようにオプションを定義する構造体(`Options`)とオプションのパラメータに値を代入する関数を返す高階関数(`func UID`, `func GID` など)を定義します。
-定義した高階関数を可変長引数にとる関数を初期化用の関数(`New`)として定義します。
-利用者側では上記で定義した `New` メソッドをオプション用の関数を使って実行します。
+FOP では以下のようにオプションを定義する構造体、オプションのパラメータに値を代入する関数を返す高階関数、高階関数を可変長引数とする初期化用の関数を定義します。
+利用者は初期化用の関数をオプション用の関数を引数に指定して実行します。
 
 ```go
 // Options
@@ -95,13 +93,12 @@ func New(filepath string, setters ...Option) error {
 
 また、上記のような FOP の実現方法では、オプション引数を関数で定義しているため、モックを使ったテストができないという問題があります。
 以下の記事ではこの問題を解決するような FOP のパターンも提案されています。
-(問題点については以下の記事が詳しいため、そちらをご参照ください)
+(問題点については以下の記事をご参照ください)
 
 https://ww24.jp/2019/07/go-option-pattern
 https://zenn.dev/sanpo_shiho/articles/c06f6b156029a5
 
-上記記事ではオプション引数を「オプション用のパラメータと `apply` 関数を持った構造体」として定義する方法が紹介されています。
-各オプションを「オプション用のパラメータと `apply` 関数を実装した構造体」とすることで、`Option` インターフェースの可変長引数をオプション引数として取ることができます。
+これらの記事ではオプション引数を「オプション用のパラメータと `apply` 関数を持った構造体」として定義する方法が紹介されています。
 
 ```go
 package file
@@ -150,12 +147,12 @@ func New(filepath string, setters ...Option) error {
 }
 ```
 
-## Functional Options Pattern の実装について
+## Functional Options Pattern の実装に関する課題
 
 FOP はオプションの数だけ「パラメータを代入する高階関数」や「オプション用の構造体 + `apply` 関数」を実装する必要があるため、オプションが多いとその分実装も膨れ上がります。
 
 また、オプション引数は高階関数 または 構造体のパラメータを関数の引数のパラメータに代入する関数（`apply`）で定義されており、初見だと若干理解しづらいと思います。
-理解できると大きな問題はないのですが、理解できるまでは導入に躊躇ってしまうかもしれません。
+理解できるまでは導入に躊躇ってしまうかもしれません。
 
 この冗長さ・導入までのハードルを解消するため、FOP を構造体定義から自動生成する CLI ツールを作りました。
 
@@ -173,9 +170,9 @@ $ go install github.com/s14t284/foggo@latest
 foggo は __fop__ と __afop__ という2つのサブコマンドを提供しています。
 
 __fop__ は FOP の紹介で最初に触れたパターンのコードを自動生成することができます。
-__afop__ は `apply` 関数を実装する FOP のコードを自動生成できます。[こちらの記事](https://ww24.jp/2019/07/go-option-pattern) で `apply` 関数を実装する FOP を `Applicable Functional Options Pattern` と命名されていたため、略称として afop としています。
+__afop__ は `apply` 関数を実装する FOP のコードを自動生成できます。[こちらの記事](https://ww24.jp/2019/07/go-option-pattern) で `apply` 関数を実装する FOP を __Applicable__ Functional Options Pattern と命名されていたため、略称として __afop__ としています。
 
-## foggo の使い方
+## 使い方
 
 foggo ではコマンドラインによる FOP の自動生成と `go:generate` による自動生成の2つをサポートしています。
 ここでは `go:generate` による FOP の自動生成の方法を紹介します。
@@ -280,12 +277,15 @@ func NewFileWithContentAndPermissions(filepath, content string, permissions os.F
 
 `afop` コマンドでの実行例は [README](https://github.com/s14t284/foggo/blob/main/README.ja.md#generate-with-afop-command) を確認いただければと思います。
 
-## 留意点
+## 注意点
 
-上述の `NewOptions` 関数を見るとわかるように、最初の FOP の例と比べて初期化用の関数は、コード自動生成の都合から、可変長引数のみを持った関数となっています。
-そのため、オプション引数以外の引数を持った関数が必要な場合、別途、関数を実装する必要があります。
+コード自動生成の都合から、以下のような課題があります。
+
+- 可変長引数のみを持った関数を自動生成するため、オプション引数以外の引数を持った関数が必要な場合、別途、関数を実装する必要があります。
+- デフォルト値をオプションを初期化する関数内で定義できないため、どれがデフォルト値か分かりづらい
 
 それでも、FOPの実現のために記述すべきコードが減ることは有意義かと思います。
+解決策がある方いらしたら意見をいただけますと幸いです。
 
 # 終わりに
 
@@ -295,5 +295,5 @@ foggo を使って FOP を実現するための単純作業から解放される
 
 # 参考
 
-- [エキスパートたちのGo言語](https://www.amazon.co.jp/dp/B09P4PH63R/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1) (FOPやコードの自動生成はこの本から知りました)
+- [エキスパートたちのGo言語](https://www.amazon.co.jp/dp/B09P4PH63R/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1) (FOPやコードの自動生成はこの本で知りました)
 - [gonstructor](https://github.com/moznion/gonstructor) (コンストラクタを自動生成するCLI。このCLIツールからfoggoの着想を得ました)
