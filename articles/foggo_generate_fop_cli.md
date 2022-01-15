@@ -1,0 +1,299 @@
+---
+title: "Go の 構造体定義から Functional Options Pattern を自動生成する CLI ツールを作った"
+emoji: "🤖"
+type: "tech" # tech: 技術記事 / idea: アイデア
+topics: ["Go", "自動生成"]
+published: false
+---
+
+Go でオプション引数を実現したいときによく Functional Options Pattern が使われるかと思います。
+このデザインパターンは便利な一方、構造体の中でオプション引数を用意したい全てのフィールドに対して、オプション引数用の関数を実装する必要があり、記述すべきコードが多くなりがちです。
+
+この問題を解決すべく、Functional Options Pattern を実現するためのコードを自動生成する CLI ツール 「foggo」を作りました。
+
+https://github.com/s14t284/foggo
+
+# Functional Options Pattern とは
+
+Go はそのシンプルな言語仕様から、オプション引数を提供していません。
+オプション引数はデフォルト引数やオプションパラメータとも呼ばれ、Python だと可変長引数である `*args` や `*kargs` のことを指します。
+
+通常の関数であれば特に問題ないのですが、構造体の初期化に使うメソッドやライブラリを提供する際に、このような省略可能な引数が欲しくなる場合があります。
+この省略可能な引数を Go で実現するために使われるのが __Functional Options Pattern__ (FOP) です。
+FOP は uber の Go Style Guide や go-patterns でも紹介されています。
+
+https://github.com/uber-go/guide/blob/master/style.md#functional-options
+https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md
+
+以下に go-patterns で提示されている FOP の例を示します。
+
+FOP では以下のようにオプションを定義する構造体(`Options`)とオプションのパラメータに値を代入する関数を返す高階関数(`func UID`, `func GID` など)を定義します。
+定義した高階関数を可変長引数にとる関数を初期化用の関数(`New`)として定義します。
+利用者側では上記で定義した `New` メソッドをオプション用の関数を使って実行します。
+
+```go
+// Options
+package file
+
+type Options struct {
+	UID         int
+	GID         int
+	Flags       int
+	Contents    string
+	Permissions os.FileMode
+}
+
+type Option func(*Options)
+
+func UID(userID int) Option {
+	return func(args *Options) {
+		args.UID = userID
+	}
+}
+
+func GID(groupID int) Option {
+	return func(args *Options) {
+		args.GID = groupID
+	}
+}
+
+// Contents, Permissions については省略
+
+// Constructor
+func New(filepath string, setters ...Option) error {
+	// Default Options
+	args := &Options{
+		UID:         os.Getuid(),
+		GID:         os.Getgid(),
+		Contents:    "",
+		Permissions: 0666,
+		Flags:       os.O_CREATE | os.O_EXCL | os.O_WRONLY,
+	}
+
+	for _, setter := range setters {
+		setter(args)
+	}
+
+	f, err := os.OpenFile(filepath, args.Flags, args.Permissions)
+	if err != nil {
+		return err
+	} else {
+		defer f.Close()
+	}
+
+	if _, err := f.WriteString(args.Contents); err != nil {
+		return err
+	}
+
+	return f.Chown(args.UID, args.GID)
+}
+
+// Usage
+// emptyFile, err := file.New("/tmp/empty.txt")
+// fillerFile, err := file.New("/tmp/file.txt", file.UID(1000), file.Contents("Lorem Ipsum Dolor Amet"))
+```
+
+また、上記のような FOP の実現方法では、オプション引数を関数で定義しているため、モックを使ったテストができないという問題があります。
+以下の記事ではこの問題を解決するような FOP のパターンも提案されています。
+(問題点については以下の記事が詳しいため、そちらをご参照ください)
+
+https://ww24.jp/2019/07/go-option-pattern
+https://zenn.dev/sanpo_shiho/articles/c06f6b156029a5
+
+上記記事ではオプション引数を「オプション用のパラメータと `apply` 関数を持った構造体」として定義する方法が紹介されています。
+各オプションを「オプション用のパラメータと `apply` 関数を実装した構造体」とすることで、`Option` インターフェースの可変長引数をオプション引数として取ることができます。
+
+```go
+package file
+
+type Options struct {
+	UID         int
+	GID         int
+	Flags       int
+	Contents    string
+	Permissions os.FileMode
+}
+
+type Option interface {
+	apply(*Options)
+}
+
+type UIDOption struct {
+	UID int
+}
+
+func (o UIDOption) apply(s *Options) {
+	s.UID = o.UID
+}
+
+type GIDOption struct {
+	GID int
+}
+
+func (o GIDOption) apply(s *Options) {
+	s.GID = o.GID
+}
+
+// (Contents, Permissions については省略)
+
+func New(filepath string, setters ...Option) error {
+	// 重複箇所については省略
+	...
+
+	for _, setter := range setters {
+		setter.apply(args)
+	}
+
+	...
+
+	return f.Chown(args.UID, args.GID)
+}
+```
+
+## Functional Options Pattern の実装について
+
+FOP はオプションの数だけ「パラメータを代入する高階関数」や「オプション用の構造体 + `apply` 関数」を実装する必要があるため、オプションが多いとその分実装も膨れ上がります。
+
+また、オプション引数は高階関数 または 構造体のパラメータを関数の引数のパラメータに代入する関数（`apply`）で定義されており、初見だと若干理解しづらいと思います。
+理解できると大きな問題はないのですが、理解できるまでは導入に躊躇ってしまうかもしれません。
+
+この冗長さ・導入までのハードルを解消するため、FOP を構造体定義から自動生成する CLI ツールを作りました。
+
+# foggo の紹介
+
+[foggo](https://github.com/s14t284/foggo) は Go の構造体定義から FOP を自動生成することができます。
+`go install` を使って以下のように導入します。
+
+```shell
+# foggo では自動生成したコードの整形に goimports を利用するため、先にインストールしてください
+$ go install golang.org/x/tools/cmd/goimports@latest
+$ go install github.com/s14t284/foggo@latest
+```
+
+foggo は __fop__ と __afop__ という2つのサブコマンドを提供しています。
+
+__fop__ は FOP の紹介で最初に触れたパターンのコードを自動生成することができます。
+__afop__ は `apply` 関数を実装する FOP のコードを自動生成できます。[こちらの記事](https://ww24.jp/2019/07/go-option-pattern) で `apply` 関数を実装する FOP を `Applicable Functional Options Pattern` と命名されていたため、略称として afop としています。
+
+## foggo の使い方
+
+foggo ではコマンドラインによる FOP の自動生成と `go:generate` による自動生成の2つをサポートしています。
+ここでは `go:generate` による FOP の自動生成の方法を紹介します。
+
+まず、オプションパラメータを用意したい構造体を以下のように定義します。
+構造体を自動生成したい関数を定義しているファイルに `go:generate foggo fop --struct {構造体名}` を記述してください。
+
+```go:file/options.go
+package file
+
+//go:generate foggo fop --struct Options
+type Options struct {
+	UID         int
+	GID         int
+	// オプションを作成したくないパラメータには `foggo:"-"` タグを付与してください
+	Flags       int `foggo:"-"`
+	Contents    string
+	Permissions os.FileMode
+}
+```
+
+その後、`go generate` コマンドを実行します。
+
+```shell
+$ go generate ./...
+```
+
+実行後、`file/options_gen.go` に以下のようなコードが自動生成されていると思います。
+
+```go:file/options_gen.go
+// Code generated by foggo; DO NOT EDIT.
+
+package file
+
+import "os"
+
+type OptionsOption func(*Options)
+
+func NewOptions(options ...OptionsOption) *Options {
+	s := &Options{}
+
+	for _, option := range options {
+		option(s)
+	}
+
+	return s
+}
+
+func WithUID(UID int) OptionsOption {
+	return func(args *Options) {
+		args.UID = UID
+	}
+}
+
+func WithGID(GID int) OptionsOption {
+	return func(args *Options) {
+		args.GID = GID
+	}
+}
+
+func WithPermissions(Permissions os.FileMode) OptionsOption {
+	return func(args *Options) {
+		args.Permissions = Permissions
+	}
+}
+```
+
+あとは必要に応じて、自動生成された初期化用の関数とオプションを使って実装してください。
+
+go-patterns のFOPの実装例を再現しようとすると、オプションの初期化用の関数に加え、オプションを使ってファイルオープン・ファイル書き込みを実施する関数を実装する必要があります。
+
+```go
+package file
+
+func NewFile(filepath string, options *Options) error {
+	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY
+	f, err := os.OpenFile(filepath, flags, options.Permissions)
+	if err != nil {
+		return err
+	} else {
+		defer f.Close()
+	}
+	if _, err := f.WriteString(options.Contents); err != nil {
+		return err
+	}
+
+	return f.Chown(options.UID, options.GID)
+}
+
+// 以下のように必要に応じてオプションを絞って構造体を初期化する関数を用意すると良い
+func NewFileWithContentAndPermissions(filepath, content string, permissions os.FileMode) error {
+	options := NewOptions(
+		WithUID(os.Getuid()),
+		WithGID(os.Getgid()),
+		WithContents(content),
+		WithPermissions(permissions),
+	)
+	return NewFile(filepath, options)
+}
+
+```
+
+`afop` コマンドでの実行例は [README](https://github.com/s14t284/foggo/blob/main/README.ja.md#generate-with-afop-command) を確認いただければと思います。
+
+## 留意点
+
+上述の `NewOptions` 関数を見るとわかるように、最初の FOP の例と比べて初期化用の関数は、コード自動生成の都合から、可変長引数のみを持った関数となっています。
+そのため、オプション引数以外の引数を持った関数が必要な場合、別途、関数を実装する必要があります。
+
+それでも、FOPの実現のために記述すべきコードが減ることは有意義かと思います。
+
+# 終わりに
+
+FOP を自動生成する CLI ツール foggo の紹介でした！
+foggo を使って FOP を実現するための単純作業から解放される方が1人でもいらしたら幸いです。
+改善案などありましたら、PR や Issue もぜひお願いします。
+
+# 参考
+
+- [エキスパートたちのGo言語](https://www.amazon.co.jp/dp/B09P4PH63R/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1) (FOPやコードの自動生成はこの本から知りました)
+- [gonstructor](https://github.com/moznion/gonstructor) (コンストラクタを自動生成するCLI。このCLIツールからfoggoの着想を得ました)
