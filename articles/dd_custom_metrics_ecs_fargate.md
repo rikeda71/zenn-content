@@ -37,7 +37,7 @@ Datadog にカスタムメトリクスを送信する方法は、[Datadog 公式
 
 ## アプリケーション側のECSタスクの設定修正
 
-[Datadog 公式のOpenMetricsインテグレーションのページ](https://docs.datadoghq.com/integrations/openmetrics/) を参考に ECS タスクの Docker ラベルに以下のパラメータをそれぞれ設定します。
+[OpenMetrics インテグレーション](https://docs.datadoghq.com/integrations/openmetrics/) を参考に ECS タスクの Docker ラベルに以下のパラメータをそれぞれ設定します。
 
 ```json
 "com.datadoghq.ad.check_names": ["openmetrics"],
@@ -55,19 +55,19 @@ Datadog にカスタムメトリクスを送信する方法は、[Datadog 公式
   - 全てのメトリクスを送信したい場合は `.*` を指定してください。
   - インターネット上の記事では、カスタムメトリクスの取得のために、Prometheus インテグレーションを使っている場合に `*` を指定している場合がいくつかありますが、Python の正規表現では解釈できないみたいです
     - 参考： https://github.com/DataDog/integrations-core/pull/10978
-- [Prometheusインテグレーション](https://docs.datadoghq.com/ja/integrations/prometheus/) を使うこともできますが、メトリクスのエンドポイントがテキスト形式をサポートしている場合はOpenMetricsインテグレーションを利用するのが良いみたいです
+- [Prometheus インテグレーション](https://docs.datadoghq.com/ja/integrations/prometheus/) を使うこともできますが、メトリクスのエンドポイントがテキスト形式をサポートしている場合はOpenMetricsインテグレーションを利用するのが良いみたいです
   - Prometheus の2系からは Protobuf 形式をサポートしていなさそうであるため、基本的にはOpenMetrics インテグレーションを利用するで良さそうです
   - 参考： https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
 
 ## datadog-agent の導入
 
-アプリケーションを ECS Fargate 上で公開している ECS タスクに[datadog-agent](https://docs.datadoghq.com/agent/)を新たにサイドカーとして動作させます。
+ECS タスク上で [datadog-agent](https://docs.datadoghq.com/agent/) を加えて動作させます。
 
-手順は[Datadog のドキュメント上で公開](https://docs.datadoghq.com/integrations/ecs_fargate)されているため、こちらを流れに沿って進めると良いと思います。
+手順は [Datadog のドキュメント上で公開](https://docs.datadoghq.com/integrations/ecs_fargate)されているため、こちらを流れに沿って進めると良いと思います。
 REPLICA サービスとしてタスクを実行するところまで進めてください。
 
 また、datadog-agent にいくつか環境変数を付与する必要があります。
-[Docker Agent](https://docs.datadoghq.com/agent/docker/?tab=standard)が参考になります。カスタムメトリクスを取得する場合は `DD_DOGSTATSD_NON_LOCAL_TRAFFIC` に `true` をセットする必要があります。
+こちらは [Docker Agent](https://docs.datadoghq.com/agent/docker) が参考になります。カスタムメトリクスを取得する場合は `DD_DOGSTATSD_NON_LOCAL_TRAFFIC` に `true` をセットする必要があります。
 
 datadog-agent にメモリ・CPUを割り振ることになるため、必要な分だけアプリケーションを動作させているタスクからメモリ・CPUの値を小さくさせる必要があることに注意してください。
 
