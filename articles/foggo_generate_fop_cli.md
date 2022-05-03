@@ -22,7 +22,6 @@ Go はそのシンプルな言語仕様から、オプション引数を提供�
 FOP は uber の Go Style Guide や go-patterns でも紹介されています。
 
 https://github.com/uber-go/guide/blob/master/style.md#functional-options
-https://github.com/tmrts/go-patterns/blob/master/idiom/functional-options.md
 
 以下に go-patterns で提示されている FOP の例を示します。
 
