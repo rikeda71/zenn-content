@@ -3,7 +3,7 @@ title: "GKEのクラスタを削除してもネットワークサービスで課
 emoji: "🔖"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["gcp", "kubernetes"]
-published: false
+published: true
 ---
 
 [アプリを GKE クラスタにデプロイする](https://cloud.google.com/kubernetes-engine/docs/deploy-app-cluster?hl=ja) などを参考に GKE で遊び終わったあと、GKE クラスタを削除しても GCP からの軽微な請求が続いていました。
