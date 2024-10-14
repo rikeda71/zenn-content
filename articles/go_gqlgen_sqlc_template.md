@@ -3,7 +3,7 @@ title: "Go + gqlgen + sqlc で開発を始めれる GitHub Template"
 emoji: "😽"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["go", "graphql", "sqlc"]
-published: false
+published: true
 ---
 
 タイトルの通り、Go + [gqlgen](https://github.com/99designs/gqlgen) + [sqlc](https://github.com/sqlc-dev/sqlc) を使った GitHub Template を公開しました。
