@@ -11,7 +11,6 @@ published: false
 https://github.com/rikeda71/go-gql-sqlc-template
 
 Web・モバイルフロントエンド向けの小 ~ 中規模の Web API を開発することを想定しています。
-
 誰でも利用できるようになっています。よければご利用ください！
 
 宣伝も兼ねて、Template のポイントをいくつか紹介します。
@@ -23,7 +22,6 @@ Web・モバイルフロントエンド向けの小 ~ 中規模の Web API を�
 ### gqlgen
 
 [gqlgen](https://github.com/99designs/gqlgen) は Schema First アプローチによって GraphQL サーバーを開発するためのライブラリです。
-
 Schema First で開発することによって以下の利点があると考えています。
 - ライブラリ独自の構文を覚えずに GraphQL Schema に関する知識があればスキーマを定義できる
 - スキーマを定義すればフロントエンドの開発も進めていける
@@ -31,7 +29,6 @@ Schema First で開発することによって以下の利点があると考え�
 ### sqlc
 
 [sqlc](https://github.com/sqlc-dev/sqlc) は SQL を書くだけで、データベースとのアクセスと得られた結果を型安全で返すコードを自動生成できる O/R Mapper です。
-
 Java の O/R Mapper である [MyBatis](https://mybatis.org/mybatis-3/) と近しい使い心地です。
 
 SQL からデータベース通信のコードを自動生成することで、以下の利点があると考えています。
@@ -110,7 +107,7 @@ Go で [Test Size](https://testing.googleblog.com/2010/12/test-sizes.html) の�
 
 https://zenn.dev/shiguredo/articles/go-test-dockertest
 
-以下のように GraphQL のクエリを書いて期待するレスポンスが返ることを検証するテストを書くことができます。
+以下のように GraphQL のクエリを書いて、期待するレスポンスが返ることを検証するテストを書くことができます。
 
 ```go
 // go:build api
@@ -134,7 +131,6 @@ type createUserMutationResponse struct {
 }
 
 func TestXxx(t *testing.T) {
-...
 	// given
 	createUserMutation := api.NewQuery(`
 	mutation CreateUser {
@@ -151,7 +147,7 @@ func TestXxx(t *testing.T) {
 	`)
 
 	// when
-  /// Server is global scope variable for api test.
+	/// Server is global scope variable for api test.
 	resBytes, err := api.PostGraphQLRequest(createUserMutation, Server)
 
 	// then
